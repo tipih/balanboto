@@ -64,28 +64,16 @@ void read_radio()
 	//TODO figure out what to return
 	clear_radio_buffer();
 	int size = read_radio_input(14,200);
+	
+	
+	
 	if (size == 14) {
 
 		/*If we got 14 byte then we should have everything*/
 		/*Now we convert the data to float*/
-		for (int a = 0; a < 4; a++) {
-			b.c[a] = radio_read_buffer[1 + a];
-		}
+		radio_analyze_data();
 
-		if ((b.f > 0.0) && (b.f < 200.0))
-			kP = b.f;
-		
-		for (int a = 0; a < 4; a++) {
-			b.c[a] = radio_read_buffer[1+4 + a];
-		}
-		if ((b.f > 0.0) && (b.f < 200.0))
-			kI = b.f;
 
-		for (int a = 0; a < 4; a++) {
-			b.c[a] = radio_read_buffer[1 + 8 + a];
-	}
-		if ((b.f > 0.0) && (b.f < 200.0))
-			kD = b.f;
 #ifdef Radio_data
 		Serial.println();
 		Serial.print("Buffer size ");
@@ -137,6 +125,50 @@ int read_radio_input(int num_of_bytes,int timeout) {
 void radio_write(char* data) {
 	radio_serial.write((uint8_t*)data, sizeof(debug_info));
 	//Serial.println(sizeof(debug_info));
+}
+void radio_analyze_data(){
+
+
+	//Datastruct for receiving data
+	//1 byte id;
+	//4 byte
+	//4 byte  
+	//4 byte 
+	//1 byte end;
+
+	
+	if (radio_read_buffer[0] == 0x00) //if message ID is 0 then this is a PID update
+	{
+
+		for (int a = 0; a < 4; a++) {
+			b.c[a] = radio_read_buffer[1 + a];
+		}
+
+		if ((b.f > 0.0) && (b.f < 200.0))
+			kP = b.f;
+
+		for (int a = 0; a < 4; a++) {
+			b.c[a] = radio_read_buffer[1 + 4 + a];
+		}
+		if ((b.f > 0.0) && (b.f < 200.0))
+			kI = b.f;
+
+		for (int a = 0; a < 4; a++) {
+			b.c[a] = radio_read_buffer[1 + 8 + a];
+		}
+		if ((b.f > 0.0) && (b.f < 200.0))
+			kD = b.f;
+		configuration.kP = kP;
+		configuration.kI = kI;
+		configuration.kP = kD;
+		
+	}
+	else if (radio_read_buffer[0] == 0x01) {
+	//If this is a cmd 1, we will save the PID values to EEPROM
+	//This approce is to ensure that we do not write to many time to EEPROM
+	//as it has a limitation of 100000 writings
+		EEPROM_writeAnything(0, configuration);
+	}
 }
 
 

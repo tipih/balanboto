@@ -4,6 +4,8 @@
 #include "robot.h"
 #include "RunningAverage.h"
 #include <Wire.h>
+#include "writeToEeprom.h"
+#include <EEPROM.h>
 
 #include <Kalman.h> // Source: https://github.com/TKJElectronics/KalmanFilter
 
@@ -105,6 +107,13 @@ union UStuff
 };
 UStuff b;
 
+struct config_t
+{
+	float kP;
+	float kI;
+	float kD;
+} configuration;
+
 
 
 int loop_time = loop_timing;
@@ -133,12 +142,10 @@ void setup()
 	int speed = radio_serial_speed;
 	radio_serial.begin(9600);
 	setup_radio("AT+BAUD=4", radio_serial_cmd_pin, speed);
-	kP = 8.0;
-	kI = 0.6;
-	kD = 4.0;
 
 
 
+	read_from_eeprom();
 	setup_PWM();
 	setup_gyro();
 	calibrate_gyro();
@@ -299,5 +306,24 @@ void test_pwm(){
 		}
 		delay(2000);
  }
+}
+
+void read_from_eeprom() {
+	EEPROM_readAnything(0, configuration);
+	if ((configuration.kD < 200) || (configuration.kI < 200) || (configuration.kP)) {
+		kP = configuration.kP;
+		kI = configuration.kI;
+		kD = configuration.kD;
+
+	}
+	else {
+		/*Set default values for the PID*/
+		kP = 8.0;
+		kI = 0.6;
+		kD = 4.0;
+	}
+}
+void save_to_eeprom() {
+	EEPROM_writeAnything(0, configuration);
 }
 
