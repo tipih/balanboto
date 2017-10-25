@@ -209,7 +209,10 @@ void loop()
 		self_balance_pid_setpoint = 0.65;                                          //Reset the self_balance_pid_setpoint variable
 	}
 	
-	
+	if (low_bat == true) {
+		/*TODO Turn on digital pin, what pin is free */
+
+	}
 	
 	while (loop_timer > micros()) {
 		
