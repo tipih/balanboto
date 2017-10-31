@@ -2,14 +2,14 @@
 #ifdef DEBUG
 	Serial.println("Starting Gyro up");
 	Serial.println("This could be a MPU-6050");
-	Wire.beginTransmission(gyro_address);
+	Wire.beginTransmission(IMUAddress);
 	Wire.write(0x75);
 	Wire.endTransmission();
 	Serial.println("Send Who am I request...");
-	Wire.requestFrom(gyro_address, 1);
+	Wire.requestFrom(0x68, 1);
 	while (Wire.available() < 1);
 	int lowByte = Wire.read();
-	if (lowByte == 0x68) {
+	if (lowByte == IMUAddress) {
 		Serial.print("Who Am I responce is ok: 0x");
 		Serial.println(lowByte, HEX);
 	}
@@ -17,22 +17,22 @@
 #endif // DEBUG
 
 	//By default the MPU-6050 sleeps. So we have to wake it up.
-	Wire.beginTransmission(gyro_address);                                     //Start communication with the address found during search.
+	Wire.beginTransmission(IMUAddress);                                     //Start communication with the address found during search.
 	Wire.write(0x6B);                                                         //We want to write to the PWR_MGMT_1 register (6B hex)
 	Wire.write(0x00);                                                         //Set the register bits as 00000000 to activate the gyro
 	Wire.endTransmission();                                                   //End the transmission with the gyro.
 																			  //Set the full scale of the gyro to +/- 250 degrees per second
-	Wire.beginTransmission(gyro_address);                                     //Start communication with the address found during search.
+	Wire.beginTransmission(IMUAddress);                                     //Start communication with the address found during search.
 	Wire.write(0x1B);                                                         //We want to write to the GYRO_CONFIG register (1B hex)
 	Wire.write(0x00);                                                         //Set the register bits as 00000000 (250dps full scale)
 	Wire.endTransmission();                                                   //End the transmission with the gyro
 																			  //Set the full scale of the accelerometer to +/- 4g.
-	Wire.beginTransmission(gyro_address);                                     //Start communication with the address found during search.
+	Wire.beginTransmission(IMUAddress);                                     //Start communication with the address found during search.
 	Wire.write(0x1C);                                                         //We want to write to the ACCEL_CONFIG register (1A hex)
 	Wire.write(0x08);                                                         //Set the register bits as 00001000 (+/- 4g full scale range)
 	Wire.endTransmission();                                                   //End the transmission with the gyro
 																			  //Set some filtering to improve the raw data.
-	Wire.beginTransmission(gyro_address);                                     //Start communication with the address found during search
+	Wire.beginTransmission(IMUAddress);                                     //Start communication with the address found during search
 	Wire.write(0x1A);                                                         //We want to write to the CONFIG register (1A hex)
 	Wire.write(0x03);                                                         //Set the register bits as 00000011 (Set Digital Low Pass Filter to ~43Hz)
 	Wire.endTransmission();                                                   //End the transmission with the gyro 
@@ -48,10 +48,10 @@ void calibrate_gyro() {
 	gyro_yaw_calibration_value = gyro_pitch_calibration_value = 0;
 	for (receive_counter = 0; receive_counter < 500; receive_counter++) {       //Create 500 loops
 		if (receive_counter % 15 == 0)digitalWrite(13, !digitalRead(13));        //Change the state of the LED every 15 loops to make the LED blink fast
-		Wire.beginTransmission(gyro_address);                                   //Start communication with the gyro
+		Wire.beginTransmission(IMUAddress);                                   //Start communication with the gyro
 		Wire.write(0x43);                                                       //Start reading the Who_am_I register 75h
 		Wire.endTransmission();                                                 //End the transmission
-		Wire.requestFrom(gyro_address, 4);                                      //Request 2 bytes from the gyro
+		Wire.requestFrom(0x68, 4);                                      //Request 2 bytes from the gyro
 		gyro_yaw_calibration_value += Wire.read() << 8 | Wire.read();               //Combine the two bytes to make one integer
 		gyro_pitch_calibration_value += Wire.read() << 8 | Wire.read();             //Combine the two bytes to make one integer
 		delayMicroseconds(3700);                                                //Wait for 3700 microseconds to simulate the main program loop time
@@ -148,18 +148,18 @@ void read_gyro() {
 	kalAngleX = kalmanX.getAngle(roll, gyroXrate, dt); // Calculate the angle using a Kalman filter
 #endif
 
-	gyroXangle += gyroXrate * dt; // Calculate gyro angle without any filter
-	gyroYangle += gyroYrate * dt;
+	//gyroXangle += gyroXrate * dt; // Calculate gyro angle without any filter
+	//gyroYangle += gyroYrate * dt;
 	//gyroXangle += kalmanX.getRate() * dt; // Calculate gyro angle using the unbiased rate
 	//gyroYangle += kalmanY.getRate() * dt;
 	//compAngleX = 0.93 * (compAngleX + gyroXrate * dt) + 0.07 * roll; // Calculate the angle using a Complimentary filter
 	//compAngleY = 0.93 * (compAngleY + gyroYrate * dt) + 0.07 * pitch;
 
 	// Reset the gyro angle when it has drifted too much
-	if (gyroXangle < -180 || gyroXangle > 180)
-		gyroXangle = kalAngleX;
-	if (gyroYangle < -180 || gyroYangle > 180)
-		gyroYangle = kalAngleY;
+	//if (gyroXangle < -180 || gyroXangle > 180)
+	//	gyroXangle = kalAngleX;
+	//if (gyroYangle < -180 || gyroYangle > 180)
+	//	gyroYangle = kalAngleY;
 
 	//Serial.print(kalAngleY); Serial.print("\t");
 	//Serial.print(compAngleY); Serial.print("\t");
