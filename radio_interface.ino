@@ -47,8 +47,26 @@ void setup_radio(String boudrate, int cmdPin,int serial_speed)
 		delay(200);
 		radio_serial.begin(serial_speed);	//Setup Radio to Baud 6 = 57600
 		
+		delay(1500);
+		
+		di.AngleGyro = kP;
+		di.SelfBalancePidSetpoint = kI;
+		di.PidSetpoint = kD;
+		
+		di.id = 0x01;
+		di.end = 0xff;
+
+
+			
+			radio_write((char *)&di);
+			delay(500);
+
+		di.id = 0x02;
+		di.AngleGyro = balance_point;
+		di.SelfBalancePidSetpoint = 0.0;
+		di.PidSetpoint = 0.0;
+		radio_write((char *)&di);
 		delay(500);
-		radio_serial.println("Test Radio");
 
 
 }
@@ -65,7 +83,7 @@ void read_radio()
 	clear_radio_buffer();
 	int size = read_radio_input(14,200);
 	
-	
+	Serial.println(size);
 	
 	if (size == 14) {
 
@@ -135,7 +153,7 @@ void radio_analyze_data(){
 	//4 byte  
 	//4 byte 
 	//1 byte end;
-
+	Serial.println(radio_read_buffer[0],HEX);
 	
 	if (radio_read_buffer[0] == 0x00) //if message ID is 0 then this is a PID update
 	{
@@ -161,6 +179,14 @@ void radio_analyze_data(){
 		configuration.kP = kP;
 		configuration.kI = kI;
 		configuration.kP = kD;
+
+
+		Serial.print(" KP=");
+		Serial.print(kP, 2);
+		Serial.print(" KI=");
+		Serial.print(kI, 2);
+		Serial.print(" KD=");
+		Serial.println(kD, 2);
 		
 	}
 	else if (radio_read_buffer[0] == 0x01) {
@@ -168,6 +194,24 @@ void radio_analyze_data(){
 	//This approce is to ensure that we do not write to many time to EEPROM
 	//as it has a limitation of 100000 writings
 		EEPROM_writeAnything(0, configuration);
+	}
+	else if (radio_read_buffer[0] == 0x02) {
+		if (radio_read_buffer[1] == 0x01)
+		 analyze_data = true; //
+		else
+			analyze_data = false; //
+	}
+	else if (radio_read_buffer[0] == 0x03) {
+		for (int a = 0; a < 4; a++) {
+			b.c[a] = radio_read_buffer[1 + a];
+		}
+
+		if ((b.f > 0.0) && (b.f < 5.0))
+			balance_point = b.f;
+
+		Serial.println(balance_point);
+		targetAngle = balance_point;
+
 	}
 }
 

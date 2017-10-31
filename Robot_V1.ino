@@ -41,7 +41,8 @@ Output<8> RightB;
 #define DEBUG
 //#define DEBUG_ENGIEN
 //#define DEBUG_GYRO
-#define Radio_data
+//define TEST_PWM
+//#define Radio_data
 
 
 
@@ -54,13 +55,14 @@ const uint16_t I2C_TIMEOUT = 1000; // Used to check for errors in I2C communicat
 /*Gyro const and VARS*/
 static const int gyro_address = 0x68;                                     //MPU-6050 I2C address (0x68 or 0x69)
 static const int acc_calibration_value = 1000;                            //Enter the accelerometer calibration value
+static float balance_point = 2.0;
 long gyro_yaw_calibration_value, gyro_pitch_calibration_value;
 double accX, accY, accZ;
 double gyroX, gyroY, gyroZ;
 double gyroXangle, gyroYangle; // Angle calculate using the gyro only
 double kalAngleX, kalAngleY; // Calculated angle using a Kalman filter
 double compAngleX, compAngleY; // Calculated angle using a complementary filter
-float self_balance_pid_setpoint;	//ajusted setpoint should be around 0
+//float self_balance_pid_setpoint;	//ajusted setpoint should be around 0
 float pid_setpoint;					//Offset ajustment, used by remote to gain speed and by break to break by using gravity break
 static uint32_t pidTimer; // Timer used for the PID loop
 int16_t tempRaw;
@@ -84,13 +86,18 @@ static float targetAngle; // Resting angle of the robot
 static float lastError; // Store last angle error
 static float iTerm; // Store iTerm
 float kP, kI, kD; // PID variables
-static float engien_deadband = 15.0f;
+static float engien_deadband = 14.0f;
 static float engien_offsetL = 1.00f;
 static float engien_offsetR = 0.90f;
+
+bool analyze_data = false;
 
 //input buffer for radio interface
 unsigned char radio_read_buffer[64];
 char radio_input;
+float Qangle = 0.001f;
+float Qbias = 0.003f;
+float Rmeasure = 0.03f;
 
 struct __attribute__((packed)) debug_info {
 	byte id;
@@ -141,17 +148,24 @@ void setup()
 	myRA.clear();
 	int speed = radio_serial_speed;
 	radio_serial.begin(9600);
+	read_from_eeprom();
 	setup_radio("AT+BAUD=4", radio_serial_cmd_pin, speed);
 
 
 
-	read_from_eeprom();
+	
+	
 	setup_PWM();
 	setup_gyro();
 	calibrate_gyro();
 
-	self_balance_pid_setpoint = 0.65;
+	targetAngle = balance_point;
 	pid_setpoint = 0;
+	
+	kalmanY.setQangle(Qangle);
+	kalmanY.setQbias(Qbias);
+	kalmanY.setRmeasure(Rmeasure);
+
 
 	low_bat = 0;
   /* add setup code here */
@@ -166,9 +180,14 @@ void loop()
 
 	/*Do all the loop magic after this point*/
 	read_radio();
-	//PID_calculation();
-	//Engien_control();	//Not in use
+	PID_calculation();
+	Engien_control();	//Not in use
+#ifdef TEST_PWM
 	test_pwm();		//For testing the PWM and engien controller
+#endif // TEST_PWM
+
+						
+						
 
 
 
@@ -201,14 +220,26 @@ void loop()
 		low_bat = 1;
 	}
 
+	
 
-	if (kalAngleY > 30 || kalAngleY < -30 || start == 0 || low_bat == 1) {    //If the robot tips over or the start variable is zero or the battery is empty
+	if (kalAngleY > 30 || kalAngleY < -30 || start == 0) {    //If the robot tips over or the start variable is zero or the battery is empty
 		//pid_output = 0;                                                         //Set the PID controller output to 0 so the motors stop moving
 		//pid_i_mem = 0;                                                          //Reset the I-controller memory
 		start = 0;                                                              //Set the start variable to 0
-		self_balance_pid_setpoint = 0.65;                                          //Reset the self_balance_pid_setpoint variable
+		targetAngle = balance_point;                                          //Reset the self_balance_pid_setpoint variable
+		stopMotor(left);
+		stopMotor(right);																	  //Serial.print("Reset State ");
+		//Serial.print(start);
+		//Serial.print(" low Bat=");
+	    //Serial.println(low_bat);
+	}
+	if ((kalAngleY > -5 && kalAngleY < 5) && start==0) {
+		Serial.println("ok to go");
+		start = 1;
 	}
 	
+
+
 	if (low_bat == true) {
 		/*TODO Turn on digital pin, what pin is free */
 
@@ -236,22 +267,26 @@ void PID_calculation()
 
 	//Do PID calculation, We need to find max output
 	timer = micros();
-	updatePID(targetAngle, targetOffset, turningOffset, (float)(timer - pidTimer) / 1000000.0f);
+	if (start==1)
+	 updatePID(targetAngle, targetOffset, turningOffset, (float)(timer - pidTimer) / 1000000.0f);
 	pidTimer = timer;
 
 	static long write_time = 0;
 	di.AngleGyro = kalAngleY;
 	di.PidSetpoint = pid_setpoint;
-	di.SelfBalancePidSetpoint = self_balance_pid_setpoint;
+	di.SelfBalancePidSetpoint = targetAngle;
 	di.id = 0x10;
 	di.end = 0xff;
 
+	if (analyze_data == true) {
 
-	/*Send debug info each half secound*/
-	if ((millis() - write_time) > 1) {
-		radio_write((char *)&di);
-		write_time = millis();
 
+		/*Send debug info each half secound*/
+		if ((millis() - write_time) > 50) {
+			radio_write((char *)&di);
+			write_time = millis();
+		}
+	}
 #ifdef DEBUG_GYRO
 
 #ifdef normal_serial_output
@@ -263,8 +298,8 @@ void PID_calculation()
 #endif // DEBUG_GYRO
 
 
-	}
 }
+
 
 /*end of PID section*/
 /********************************************************************************************************/
@@ -285,6 +320,11 @@ void Engien_control() {
 //Truning should be direct on the engien, should be scaled down if the re
 
 }
+
+#ifdef TEST_PWM
+
+
+
 void test_pwm(){
 	while (1) {
 		moveMotor(Command::left, Command::forward, 20.0);
@@ -310,10 +350,14 @@ void test_pwm(){
 		delay(2000);
  }
 }
+#endif // TEST_PWM
 
 void read_from_eeprom() {
 	EEPROM_readAnything(0, configuration);
-	if ((configuration.kD < 200) || (configuration.kI < 200) || (configuration.kP)) {
+	Serial.print("Configuration ");
+	Serial.println(configuration.kP);
+	
+	if ((configuration.kD < 200) || (configuration.kI < 200) || (configuration.kP<200)) {
 		kP = configuration.kP;
 		kI = configuration.kI;
 		kD = configuration.kD;
@@ -321,9 +365,12 @@ void read_from_eeprom() {
 	}
 	else {
 		/*Set default values for the PID*/
-		kP = 8.0;
-		kI = 0.6;
-		kD = 4.0;
+		Serial.println("Set default values for PID ");
+		
+		kP = 4.7;
+		kI = 1.9;
+		kD = 3.4;
+		//kP = 17, kI = 180, kD = 1.0;
 	}
 }
 void save_to_eeprom() {

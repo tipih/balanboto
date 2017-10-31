@@ -30,13 +30,13 @@
 
 
 	if (PIDLeft >= 0)
-		moveMotor(left, forward, PIDLeft);
+		moveMotor(left, backward, PIDLeft);
 	else
-		moveMotor(left, backward, -PIDLeft);
+		moveMotor(left, forward, -PIDLeft);
 	if (PIDRight >= 0)
-		moveMotor(right, forward, PIDRight);
+		moveMotor(right, backward, PIDRight);
 	else
-		moveMotor(right, backward, -PIDRight);
+		moveMotor(right, forward, -PIDRight);
 
 
 }
