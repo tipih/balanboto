@@ -77,6 +77,11 @@ typedef void *__builtin_va_list;
 #define pgm_read_float(address_short) float()
 #define pgm_read_ptr(address_short)   short()
 
-#include "Test_gyro.ino"
+#include "Robot_V1.ino"
+#include "error_handler.ino"
+#include "gyro6050.ino"
+#include "pid_control.ino"
+#include "pwm_control.ino"
+#include "radio_interface.ino"
 #endif
 #endif
