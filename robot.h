@@ -35,7 +35,14 @@ Output<8> RightB;
 //#define Radio_data
 
 
+
+
+
 enum Command {
+	pid,
+	save_config,
+	send_data,
+	ajust_balance_point,
 	stop,
 	forward,
 	backward,
@@ -45,7 +52,6 @@ enum Command {
 	joystick,
 } lastCommand; // This is used set a new targetPosition
 
-
 //Struct for sending data to the PC program
 struct __attribute__((packed)) debug_info {
 	byte id;
@@ -54,6 +60,28 @@ struct __attribute__((packed)) debug_info {
 	float PidSetpoint;
 	byte end;
 };
+
+/*Packed data struct, this is used for conversion from byte array to a data struct
+this is very compiler dependent and can't be move to other board with good testing
+We always should receive 14 bytes no less no more*/
+
+struct __attribute__((packed)) _msgtype1 {
+	byte id;
+	float data1;
+	float data2;
+	float data3;
+	byte end;
+};
+
+
+struct __attribute__((packed)) _msgtype2 {
+	byte id;
+	unsigned long data1;
+	long data2;
+	long data3;
+	byte end;
+};
+
 
 //Union used convert from byte to float, and the other way around
 union UStuff

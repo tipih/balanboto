@@ -1,4 +1,6 @@
-﻿void updatePID(float restAngle, float offset, float turning, float dt) {
+﻿#include "radio_interface.h"
+
+void updatePID(float restAngle, float offset, float turning, float dt) {
 
 
 	/* Update PID values */

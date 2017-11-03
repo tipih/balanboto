@@ -1,4 +1,5 @@
-﻿void setup_PWM()
+﻿#include "radio_interface.h"
+void setup_PWM()
 {
 /*Setup the PWM to 20kHz this will be timer 1 pins will be 9 and 10
 OCR1A will be pin 9

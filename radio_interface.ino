@@ -48,7 +48,7 @@ void setup_radio(String boudrate, int cmdPin,int serial_speed)
 		radio_serial.begin(serial_speed);	//Setup Radio to Baud 6 = 57600
 		
 		delay(1500);
-		
+		radio_serial.println("If you read this, then Radio is configures ok");
 		di.AngleGyro = kP;
 		di.SelfBalancePidSetpoint = kI;
 		di.PidSetpoint = kD;
@@ -154,7 +154,17 @@ void radio_analyze_data(){
 	//4 byte 
 	//1 byte end;
 	Serial.println(radio_read_buffer[0],HEX);
+
+	Serial.println(radio_read_buffer[1], HEX);
+	Serial.println(radio_read_buffer[2], HEX);
+	Serial.println(radio_read_buffer[3], HEX);
+	Serial.println(radio_read_buffer[4], HEX);
 	
+	_msgtype1 *dataStruct = (struct _msgtype1 *)&radio_read_buffer;
+	Serial.println("Test data from PC"); //To be removed when endian is fixed
+	Serial.print(dataStruct->data1);
+	
+
 	if (radio_read_buffer[0] == 0x00) //if message ID is 0 then this is a PID update
 	{
 
