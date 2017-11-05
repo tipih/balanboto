@@ -110,7 +110,7 @@
   </ImportGroup>
   <ProjectExtensions>
     <VisualStudio>
-      <UserProperties vm.programmer_name="arduinoisp" arduino.upload.port="COM6" />
+      <UserProperties vm.programmer_name="arduinoisp" arduino.upload.port="COM5" />
     </VisualStudio>
   </ProjectExtensions>
 </Project>
