@@ -65,13 +65,17 @@ struct __attribute__((packed)) debug_info {
 this is very compiler dependent and can't be move to other board with good testing
 We always should receive 14 bytes no less no more*/
 
+
+
+
+
 struct __attribute__((packed)) _msgtype1 {
 	byte id;
 	float data1;
 	float data2;
 	float data3;
 	byte end;
-};
+}; static _msgtype1 *dataStruct;
 
 
 struct __attribute__((packed)) _msgtype2 {
@@ -80,7 +84,33 @@ struct __attribute__((packed)) _msgtype2 {
 	long data2;
 	long data3;
 	byte end;
-};
+}; static _msgtype2 *dataStruct1;
+
+struct __attribute__((packed)) _msgtype3 {
+	byte id;
+	byte data1;
+	byte data2;
+	byte data3;
+	byte data4;
+	byte data5;
+	byte data6;
+	byte data7;
+	byte data8;
+	byte data9;
+	byte data10;
+	byte data11;
+	byte data12;
+	byte end;
+}; static _msgtype3 *dataStruct2;
+
+struct __attribute__((packed)) _msgtype4 {
+	byte id;
+	unsigned long data1;
+	long data2;
+	float data3;
+	byte end;
+}; static _msgtype4 *dataStruct3;
+
 
 
 //Union used convert from byte to float, and the other way around
@@ -97,4 +127,4 @@ struct config_t
 	float kP;
 	float kI;
 	float kD;
-} configuration;
+}; config_t configuration;

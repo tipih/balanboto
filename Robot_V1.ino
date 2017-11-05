@@ -317,9 +317,12 @@ void test_pwm(){
 
 void read_from_eeprom() {
 	EEPROM_readAnything(0, configuration);
+#ifdef DEBUG_EEPROM
 	Serial.print("Configuration ");
 	Serial.println(configuration.kP);
-	
+	Serial.println(configuration.kI);
+	Serial.println(configuration.kD);
+#endif // DEBUG_EEPROM	
 	if ((configuration.kD < 200) || (configuration.kI < 200) || (configuration.kP<200)) {
 		kP = configuration.kP;
 		kI = configuration.kI;
@@ -330,9 +333,9 @@ void read_from_eeprom() {
 		/*Set default values for the PID*/
 		Serial.println("Set default values for PID ");
 		
-		kP = 5.7;
-		kI = 1.9;
-		kD = 3.4;
+		configuration.kP=kP = 5.7;
+		configuration.kI = kI = 1.9;
+		configuration.kD = kD = 3.4;
 		//kP = 17, kI = 180, kD = 1.0;
 	}
 }

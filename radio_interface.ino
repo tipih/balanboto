@@ -48,7 +48,7 @@ void setup_radio(String boudrate, int cmdPin,int serial_speed)
 		radio_serial.begin(serial_speed);	//Setup Radio to Baud 6 = 57600
 		
 		delay(1500);
-		radio_serial.println("If you read this, then Radio is configures ok");
+		//radio_serial.println("If you read this, then Radio is configures ok");
 		di.AngleGyro = kP;
 		di.SelfBalancePidSetpoint = kI;
 		di.PidSetpoint = kD;
@@ -83,27 +83,13 @@ void read_radio()
 	clear_radio_buffer();
 	int size = read_radio_input(14,200);
 	
-	Serial.println(size);
+	//Serial.println(size);
 	
 	if (size == 14) {
 
 		/*If we got 14 byte then we should have everything*/
 		/*Now we convert the data to float*/
 		radio_analyze_data();
-
-
-#ifdef Radio_data
-		Serial.println();
-		Serial.print("Buffer size ");
-		Serial.print(size, DEC);
-		Serial.print(" KP=");
-		Serial.print(kP, 2);
-		Serial.print(" KI=");
-		Serial.print(kI, 2);
-		Serial.print(" KD=");
-		Serial.println(kD, 2);
-#endif // Radio_data
-
 
 	}
 
@@ -144,6 +130,14 @@ void radio_write(char* data) {
 	radio_serial.write((uint8_t*)data, sizeof(debug_info));
 	//Serial.println(sizeof(debug_info));
 }
+
+/*Main accespoint for analyzing data comming from PC, everything must be send as Little Endian form PC, so if PC is Big Endian a conversion must be done*/
+/*We have the following message type for  14 bytes 1 byte id 12 byte for different types 1 byte for end*/
+/*MSG1 1 byte ID 3*4 byte float 1 byte end*/
+/*MSG2 1 byte ID 4 byte unsigned long 2*4 byte long 1 byte end*/
+/*MSG3 1 byte ID 14*1 byte 1 byte end*/
+/*MSG4 1 byte ID 1*4 byte unsigned long 1*4 byte long 1*4 byte float 1 byte end*/
+
 void radio_analyze_data(){
 
 
@@ -153,76 +147,96 @@ void radio_analyze_data(){
 	//4 byte  
 	//4 byte 
 	//1 byte end;
-	Serial.println(radio_read_buffer[0],HEX);
 
+
+#ifdef Radio_data
+
+	Serial.println(radio_read_buffer[0],HEX);
+	Serial.println("---------");
+	
 	Serial.println(radio_read_buffer[1], HEX);
 	Serial.println(radio_read_buffer[2], HEX);
 	Serial.println(radio_read_buffer[3], HEX);
 	Serial.println(radio_read_buffer[4], HEX);
-	
-	_msgtype1 *dataStruct = (struct _msgtype1 *)&radio_read_buffer;
-	Serial.println("Test data from PC"); //To be removed when endian is fixed
-	Serial.print(dataStruct->data1);
+	Serial.println("---------");
+	Serial.println(radio_read_buffer[5], HEX);
+	Serial.println(radio_read_buffer[6], HEX);
+	Serial.println(radio_read_buffer[7], HEX);
+	Serial.println(radio_read_buffer[8], HEX);
+	Serial.println("---------");
+	Serial.println(radio_read_buffer[9], HEX);
+	Serial.println(radio_read_buffer[10], HEX);
+	Serial.println(radio_read_buffer[11], HEX);
+	Serial.println(radio_read_buffer[12], HEX);
+	Serial.println("---------");
+	Serial.println(radio_read_buffer[13], HEX);
+	Serial.println("---------");
+#endif // Radio_data
+
+
+	if (radio_read_buffer[13] != 0xFF) return; //Check of end byte is 0xff if not something when wrong
+
 	
 
-	if (radio_read_buffer[0] == 0x00) //if message ID is 0 then this is a PID update
+
+	byte msgID = radio_read_buffer[0]; 
+
+	switch (msgID)
 	{
+		case 0:
+			dataStruct = (struct _msgtype1 *)&radio_read_buffer;
+			getPID();
+			break;
+		case 1:
+			dataStruct1 = (struct _msgtype2 *)&radio_read_buffer;
+			Serial.println(configuration.kP);
+			Serial.println(configuration.kI);
+			Serial.println(configuration.kD);
 
-		for (int a = 0; a < 4; a++) {
-			b.c[a] = radio_read_buffer[1 + a];
-		}
-
-		if ((b.f > 0.0) && (b.f < 200.0))
-			kP = b.f;
-
-		for (int a = 0; a < 4; a++) {
-			b.c[a] = radio_read_buffer[1 + 4 + a];
-		}
-		if ((b.f > 0.0) && (b.f < 200.0))
-			kI = b.f;
-
-		for (int a = 0; a < 4; a++) {
-			b.c[a] = radio_read_buffer[1 + 8 + a];
-		}
-		if ((b.f > 0.0) && (b.f < 200.0))
-			kD = b.f;
-		configuration.kP = kP;
-		configuration.kI = kI;
-		configuration.kP = kD;
-
-
-		Serial.print(" KP=");
-		Serial.print(kP, 2);
-		Serial.print(" KI=");
-		Serial.print(kI, 2);
-		Serial.print(" KD=");
-		Serial.println(kD, 2);
-		
+			EEPROM_writeAnything(0, configuration);
+			Serial.println("Write to EEprom");
+			break;
+		case 2:
+			dataStruct2 = (struct _msgtype3 *)&radio_read_buffer;
+			break;
+		case 3:
+			dataStruct3 = (struct _msgtype4 *)&radio_read_buffer;
+			balance_point = dataStruct3->data3;
+			targetAngle = balance_point;
+			break;
+		case 4:
+			if (radio_read_buffer[1] == 0x01)
+				analyze_data = true; //
+			else
+				analyze_data = false; //
+			break;
+	default:
+		break;
 	}
-	else if (radio_read_buffer[0] == 0x01) {
-	//If this is a cmd 1, we will save the PID values to EEPROM
-	//This approce is to ensure that we do not write to many time to EEPROM
-	//as it has a limitation of 100000 writings
-		EEPROM_writeAnything(0, configuration);
-	}
-	else if (radio_read_buffer[0] == 0x02) {
-		if (radio_read_buffer[1] == 0x01)
-		 analyze_data = true; //
-		else
-			analyze_data = false; //
-	}
-	else if (radio_read_buffer[0] == 0x03) {
-		for (int a = 0; a < 4; a++) {
-			b.c[a] = radio_read_buffer[1 + a];
-		}
 
-		if ((b.f > 0.0) && (b.f < 5.0))
-			balance_point = b.f;
 
-		Serial.println(balance_point);
-		targetAngle = balance_point;
 
-	}
+
+
+
+}
+
+void getPID() {
+	
+	kP = dataStruct->data1;
+	kI = dataStruct->data2;
+	kD = dataStruct->data3;
+	configuration.kP = kP;
+	configuration.kI = kI;
+	configuration.kD = kD;
+
+
+	Serial.print(" KP=");
+	Serial.print(configuration.kP, 2);
+	Serial.print(" KI=");
+	Serial.print(configuration.kI, 2);
+	Serial.print(" KD=");
+	Serial.println(configuration.kD, 2);
 }
 
 
