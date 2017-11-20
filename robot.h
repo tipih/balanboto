@@ -127,4 +127,5 @@ struct config_t
 	float kP;
 	float kI;
 	float kD;
+	float bP;
 }; config_t configuration;

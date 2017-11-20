@@ -201,7 +201,7 @@ void radio_analyze_data(){
 			break;
 		case 3:
 			dataStruct3 = (struct _msgtype4 *)&radio_read_buffer;
-			balance_point = dataStruct3->data3;
+			configuration.bP=balance_point = dataStruct3->data3;
 			targetAngle = balance_point;
 			break;
 		case 4:
@@ -210,6 +210,25 @@ void radio_analyze_data(){
 			else
 				analyze_data = false; //
 			break;
+		case 5:
+			dataStruct = (struct _msgtype1 *)&radio_read_buffer;
+			engien_deadband = dataStruct->data1;
+			engien_offsetR = dataStruct->data2;
+
+
+			break;
+		case 6:
+			dataStruct2 = (struct _msgtype3 *)&radio_read_buffer;
+			switch (dataStruct2->data1) {
+			case 1: Serial.println("forward");	break;//Forward
+			case 2: Serial.println("backward"); break; //Backward
+			case 3: Serial.println("left");		break; //Left
+			case 4: Serial.println("right");	break; //Right
+
+
+			}
+			break;
+
 	default:
 		break;
 	}

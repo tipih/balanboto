@@ -23,7 +23,7 @@ const uint16_t I2C_TIMEOUT = 1000; // Used to check for errors in I2C communicat
 /*Gyro const and VARS*/
 const uint8_t IMUAddress = 0x68;                                     //MPU-6050 I2C address (0x68 or 0x69)
 static const int acc_calibration_value = 1000;                            //Enter the accelerometer calibration value
-static float balance_point = 2.0;
+static float balance_point = 2.1;
 long gyro_yaw_calibration_value, gyro_pitch_calibration_value;
 double accX, accY, accZ;
 double gyroX, gyroY, gyroZ;
@@ -36,7 +36,9 @@ uint8_t i2cData[14]; // Buffer for I2C data
 static uint32_t pidTimer; // Timer used for the PID loop
 uint32_t timer;
 unsigned long loop_timer;
+unsigned long test_timer;
 unsigned long bat_timer;
+unsigned long encoderTimer;
 int loop_time = loop_timing;
 int current_time;
 
@@ -58,11 +60,12 @@ byte start, low_bat;				//State vars, this will handle if the robot should balan
 
 //Vars for controlling the Robot's movement, also via the remote control
 static bool steerStop = true;		// Stop by default
-static bool stopped;				// This is used to set a new target position after braking
+static bool stopped=false;				// This is used to set a new target position after braking
 static float targetOffset = 0.0f;	// Offset for going forward and backward
 static float turningOffset = 0.0f;	// Offset for turning left and right
 static float targetAngle; // Resting angle of the robot
 static float lastError; // Store last angle error
+
 
 //General PID VARS
 static float iTerm; // Store iTerm
@@ -70,9 +73,16 @@ float kP, kI, kD; // PID variables
 
 
 //General engien vars
-static float engien_deadband = 14.0f;
+static float engien_deadband = 1.0f;
 static float engien_offsetL = 1.00f;
-static float engien_offsetR = 0.90f;
+static float engien_offsetR = 0.95f;
+
+//Position vars
+static int32_t lastWheelPosition; // Used to calculate the wheel velocity
+static int32_t wheelVelocity; // Wheel velocity based on encoder readings
+static int32_t targetPosition; // The encoder position the robot should be at
+static float lastRestAngle; // Used to limit the new restAngle if it's much larger than the previous one
+static bool moveing = false;
 
 
 //Flag for start sending data from Robot to PC, reason for having this was that radio can't send a receive at the same time, so if sending
@@ -120,9 +130,13 @@ void setup()
 	setup_gyro();																//Look for the Gyro at address 0x68
 	calibrate_gyro();															//Calibrate the Gyro
 
-	targetAngle = balance_point;												//Set target angle to the balance point, this can be ajusted from the PC program 
+	pinMode(A3, OUTPUT);
+	digitalWrite(A3, LOW);
+
+	lastRestAngle=targetAngle = balance_point;												//Set target angle to the balance point, this can be ajusted from the PC program 
 	targetOffset = 0;															//Init to 0, this will be use as remote control offset
 	
+
 	kalmanY.setQangle(Qangle);
 	kalmanY.setQbias(Qbias);
 	kalmanY.setRmeasure(Rmeasure);
@@ -162,7 +176,7 @@ void loop()
 	}
 
 	
-
+	
 																					//More than +-35 degree will make the robot stop, then it has to be within +-5 degree to start again
 	if (kalAngleY > 35 || kalAngleY < -35 || start == 0) {							//If the robot tips over or the start variable is zero or the battery is empty
 		//pid_output = 0;															//Set the PID controller output to 0 so the motors stop moving
@@ -180,13 +194,19 @@ void loop()
 		start = 1;
 	}
 	
-
+	test_timer = millis();
+	
+	if (test_timer - encoderTimer >= 100) { // Update encoder values every 100ms
+		encoderTimer = test_timer;
+		readEncoders();
+		}
 
 	if (low_bat == true) {
 		/*TODO Turn on digital pin, what pin is free */
-
 	}
 	
+
+
 	while (loop_timer > micros()) {		
 																					//Stay in this loop untill next loop												
 	};
@@ -230,8 +250,15 @@ void PID_calculation()
 
 	//Do PID calculation, We need to find max output
 	timer = micros();
-	if (start==1)
-	 updatePID(targetAngle, targetOffset, turningOffset, (float)(timer - pidTimer) / 1000000.0f);
+	if (start == 1)
+	{
+		
+
+
+
+
+		updatePID(targetAngle, targetOffset, turningOffset, (float)(timer - pidTimer) / 1000000.0f);
+	}
 	
 	pidTimer = timer;
 
@@ -281,8 +308,16 @@ void serial_write(char* data) {
 
 
 void readEncoders() {
-//Read encoders
-
+	//Read encoders
+	int32_t wheelPosition = leftEncode.read();
+	wheelVelocity = wheelPosition - lastWheelPosition;
+	lastWheelPosition = wheelPosition;
+	//Serial.print(wheelPosition); Serial.print('\t'); Serial.print(targetPosition); Serial.print('\t'); Serial.print(stopped); Serial.print('\t'); Serial.println(wheelVelocity);
+	if (abs(wheelVelocity) <= 20 && !stopped) { // Set new targetPosition if braking
+		targetPosition = wheelPosition;
+		Serial.println("test test test test");
+		stopped = true;
+	}
 }
 
 
@@ -327,15 +362,18 @@ void read_from_eeprom() {
 		kP = configuration.kP;
 		kI = configuration.kI;
 		kD = configuration.kD;
+		balance_point = configuration.bP;
 
 	}
 	else {
 		/*Set default values for the PID*/
 		Serial.println("Set default values for PID ");
 		
-		configuration.kP=kP = 5.7;
-		configuration.kI = kI = 1.9;
-		configuration.kD = kD = 3.4;
+		configuration.kP=kP = 8.9;
+		configuration.kI = kI = 0.40;
+		configuration.kD = kD = 0.13;
+		configuration.bP = balance_point;
+
 		//kP = 17, kI = 180, kD = 1.0;
 	}
 }
