@@ -39,8 +39,16 @@ unsigned long loop_timer;
 unsigned long test_timer;
 unsigned long bat_timer;
 unsigned long encoderTimer;
-int loop_time = loop_timing;
-int current_time;
+unsigned long sensorTimer;
+
+unsigned int pulseTimer;
+unsigned int loop_time = loop_timing;
+unsigned int current_time;
+unsigned int tempVar;
+unsigned long SensorValue;
+//Sensor
+byte sensorOffset;
+byte sensorChannel;
 
 //Kalman instance, for filtering the IMU
 Kalman kalmanX; 
@@ -89,6 +97,7 @@ static bool moveing = false;
 //data at a high speed from robot to PC, ajusting PID value from PC to Robot could course wrong data i both directions, this could be fixed 
 //with retransmission, and checsum, but there is no need for that solution
 bool analyze_data = false;
+bool enableSensor = true;
 
 //input buffer for radio interface
 unsigned char radio_read_buffer[64];
@@ -111,6 +120,49 @@ SoftwareSerial radio_serial(radio_serial_rx, radio_serial_tx);
 Encoder leftEncode(leftEncoderPin1, leftEncoderPin2);		//Setup left the encoder for pin 1-2
 //Encoder rightEncoder(rightEncoderPin1, rightEncoderPin2);	//Setup right the encoder for pin 1-2
 
+//************************************************************************************************
+//Interrupt overflow vector for generating a 50uS pulse every 100ms
+//Timer 1 is setup to 20kHz PWM, but we also used the overflow interrupt vector for generation of a pulse
+//So 2000 counts = 100 mS as 1 count = 50uS fits very well with HC-SR04 datasheet
+ISR(TIMER1_OVF_vect)
+{
+	cli();
+
+	pulseTimer++;
+	if (pulseTimer >= 4000)
+	{
+		if (pulseTimer == 4000)
+			PORTC |= 0b000000100;
+		else if(pulseTimer == 4002)
+		{
+			PORTC &= ~0b00000100;
+			pulseTimer = 0;
+		}
+	}
+	sei();
+}
+
+ISR(PCINT2_vect)															   // Port D, PCINT16 - PCINT23
+{
+	cli();
+	current_time = micros();
+	//Pin 2=========================================
+	if (PIND & B00000100) {                                                      //Is input 2 high?
+		if (sensorChannel == 0) {                                                //Input 2 changed from 0 to 1.
+			sensorChannel = 1;                                                   //Remember current input state.
+			sensorTimer = current_time;                                          //Set sensorTimer to current_time.
+			
+		}
+	}
+	else if (sensorChannel == 1) {                                             //Input 2 is not high and changed from 1 to 0.
+		sensorChannel = 0;                                                     //Remember current input state.
+		SensorValue = current_time - sensorTimer;                             //SensorValue  is current_time - sensorTimer.
+		
+	}
+	sei();
+}
+
+
 
 void setup()
 {
@@ -131,9 +183,18 @@ void setup()
 	calibrate_gyro();															//Calibrate the Gyro
 
 	pinMode(A3, OUTPUT);
+	pinMode(A2, OUTPUT);
+	pinMode(2, INPUT);
+	
+	cli();
+	PCICR |=  0b00000100;   // turn on port d
+	PCMSK2 |= 0b00000100;	// turn on pin PD02, which is PCINT18
+	sei();
+
+
 	digitalWrite(A3, LOW);
 
-	lastRestAngle=targetAngle = balance_point;												//Set target angle to the balance point, this can be ajusted from the PC program 
+	lastRestAngle=targetAngle = balance_point;									//Set target angle to the balance point, this can be ajusted from the PC program 
 	targetOffset = 0;															//Init to 0, this will be use as remote control offset
 	
 
@@ -148,11 +209,16 @@ void setup()
 	timer = micros();
 	pidTimer = timer;
 	bat_timer = millis() + 1000;
+
+	pulseTimer = 0;
+	sensorChannel = 0;
+	sensorOffset = 0;
+	
 }
 
 void loop()
 {
-
+	
 	/*Do all the loop magic after this point*/
 	read_radio();
 	PID_calculation();
@@ -206,6 +272,19 @@ void loop()
 	}
 	
 
+	//Lets use the sensor
+
+	if ((((SensorValue < 2000)&&(SensorValue > 400))&&(targetOffset==0)&&(enableSensor==true))) {
+
+		sensorOffset = map(SensorValue, 400, 2000, 4, 0);
+		Serial.println(sensorOffset);
+
+	}
+	else
+		sensorOffset = 0;
+	
+		
+	
 
 	while (loop_timer > micros()) {		
 																					//Stay in this loop untill next loop												
@@ -252,12 +331,7 @@ void PID_calculation()
 	timer = micros();
 	if (start == 1)
 	{
-		
-
-
-
-
-		updatePID(targetAngle, targetOffset, turningOffset, (float)(timer - pidTimer) / 1000000.0f);
+		updatePID(targetAngle, targetOffset-sensorOffset, turningOffset, (float)(timer - pidTimer) / 1000000.0f);
 	}
 	
 	pidTimer = timer;

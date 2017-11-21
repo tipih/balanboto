@@ -2,7 +2,7 @@
 
 void updatePID(float restAngle, float offset, float turning, float dt) {
 
-
+	
 	//Only break until speed is low
 	if ((abs(wheelVelocity)<1) && (moveing == true))
 	{
@@ -14,7 +14,7 @@ void updatePID(float restAngle, float offset, float turning, float dt) {
 
 
 	//If somebody push the robot it will start to move, now it is time to do some magic
-	if ((abs(wheelVelocity) > 12) || (moveing == true)) {
+	if (((abs(wheelVelocity) > 12) || (moveing == true)) && (offset==0.00) ) {
 		digitalWrite(A3, HIGH);
 		moveing = true;
 		restAngle -= (float)wheelVelocity / 4.0;
@@ -22,12 +22,21 @@ void updatePID(float restAngle, float offset, float turning, float dt) {
 		
 
 	}
+	else
+	{
+		if ((offset > 0.00 && wheelVelocity < 0) || (offset < 0 && wheelVelocity > 0.00) || offset == 0.00) // Scale down offset at high speed - wheel velocity is negative when driving forward and positive when driving backward
+			offset += (float)wheelVelocity / 4; // We will always compensate if the offset is 0, but steerStop is not set
+		
+		
+		//Serial.println(offset);
+		restAngle -= offset;
+	}
 
 
 
 
 
-	restAngle = constrain(restAngle, lastRestAngle - 0.12, lastRestAngle + 0.12); // Don't change restAngle with more than 1 degree in each loop
+	restAngle = constrain(restAngle, lastRestAngle - 0.15, lastRestAngle + 0.15); // Don't change restAngle with more than 1 degree in each loop
 	lastRestAngle = restAngle;
 	
 	//radio_serial.println(restAngle);
@@ -58,6 +67,20 @@ void updatePID(float restAngle, float offset, float turning, float dt) {
 	float PIDValue = pTerm + iTerm + dTerm;
 
 	//Serial.println(kalAngleY);
+
+
+	/* Steer robot sideways */
+	if (turning < 0) { // Left
+		turning += abs((float)wheelVelocity / 4); // Scale down at high speed
+		if (turning > 0)
+			turning = 0;
+	}
+	else if (turning > 0) { // Right
+		turning -= abs((float)wheelVelocity / 4); // Scale down at high speed
+		if (turning < 0)
+			turning = 0;
+	}
+
 
 
 	float PIDLeft = PIDValue + turning+ engien_deadband;

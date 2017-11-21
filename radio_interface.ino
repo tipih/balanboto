@@ -220,13 +220,20 @@ void radio_analyze_data(){
 		case 6:
 			dataStruct2 = (struct _msgtype3 *)&radio_read_buffer;
 			switch (dataStruct2->data1) {
-			case 1: Serial.println("forward");	break;//Forward
-			case 2: Serial.println("backward"); break; //Backward
-			case 3: Serial.println("left");		break; //Left
-			case 4: Serial.println("right");	break; //Right
+			case 0: Serial.println("stop"); targetOffset = 0; turningOffset = 0; break;//Forward
+			case 1: Serial.println("forward"); targetOffset = -7;	break;//Forward
+			case 2: Serial.println("backward"); targetOffset = 7; break; //Backward
+			case 3: Serial.println("left");	turningOffset = 25;	break; //Left
+			case 4: Serial.println("right"); turningOffset = -25;	break; //Right
 
 
 			}
+			break;
+		case 7:
+			if (radio_read_buffer[1] == 0x01)
+				enableSensor = true; //
+			else
+				enableSensor = false; //
 			break;
 
 	default:
