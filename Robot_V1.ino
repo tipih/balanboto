@@ -39,13 +39,14 @@ unsigned long loop_timer;
 unsigned long test_timer;
 unsigned long bat_timer;
 unsigned long encoderTimer;
-unsigned long sensorTimer;
+static unsigned long sensorTimer;
+static unsigned long current_time;
 
 unsigned int pulseTimer;
 unsigned int loop_time = loop_timing;
-unsigned int current_time;
+
 unsigned int tempVar;
-unsigned long SensorValue;
+static unsigned int SensorValue;
 //Sensor
 byte sensorOffset;
 byte sensorChannel;
@@ -83,7 +84,7 @@ float kP, kI, kD; // PID variables
 //General engien vars
 static float engien_deadband = 1.0f;
 static float engien_offsetL = 1.00f;
-static float engien_offsetR = 0.95f;
+static float engien_offsetR = 0.98f;
 
 //Position vars
 static int32_t lastWheelPosition; // Used to calculate the wheel velocity
@@ -98,6 +99,7 @@ static bool moveing = false;
 //with retransmission, and checsum, but there is no need for that solution
 bool analyze_data = false;
 bool enableSensor = true;
+bool last_state = false;
 
 //input buffer for radio interface
 unsigned char radio_read_buffer[64];
@@ -137,6 +139,7 @@ ISR(TIMER1_OVF_vect)
 		{
 			PORTC &= ~0b00000100;
 			pulseTimer = 0;
+			sensorTimer = micros();
 		}
 	}
 	sei();
@@ -144,22 +147,20 @@ ISR(TIMER1_OVF_vect)
 
 ISR(PCINT2_vect)															   // Port D, PCINT16 - PCINT23
 {
-	cli();
+	
 	current_time = micros();
+	cli();
 	//Pin 2=========================================
-	if (PIND & B00000100) {                                                      //Is input 2 high?
-		if (sensorChannel == 0) {                                                //Input 2 changed from 0 to 1.
-			sensorChannel = 1;                                                   //Remember current input state.
-			sensorTimer = current_time;                                          //Set sensorTimer to current_time.
-			
-		}
+	if  (PIND & B00000100) {                                                      //Is input 2 high?
+		if (last_state == false)                                                 //Input 10 changed from 0 to 1.
+     		last_state = true;
 	}
-	else if (sensorChannel == 1) {                                             //Input 2 is not high and changed from 1 to 0.
-		sensorChannel = 0;                                                     //Remember current input state.
+	else if (last_state==true) {
+		last_state = false;
 		SensorValue = current_time - sensorTimer;                             //SensorValue  is current_time - sensorTimer.
-		
-	}
+		}
 	sei();
+	
 }
 
 
@@ -169,7 +170,9 @@ void setup()
  /*Setup Serial for debugging*/
 	Wire.begin();                                                             //Start the I2C bus as master
 	TWBR = 12;                                                                //Set the I2C clock speed to 400kHz
-
+	pinMode(A3, OUTPUT);
+	pinMode(A2, OUTPUT);
+	pinMode(2, INPUT);
 	Serial.begin(19200);
 	Serial.println("Starting up project Robot V1");
 	
@@ -182,9 +185,7 @@ void setup()
 	setup_gyro();																//Look for the Gyro at address 0x68
 	calibrate_gyro();															//Calibrate the Gyro
 
-	pinMode(A3, OUTPUT);
-	pinMode(A2, OUTPUT);
-	pinMode(2, INPUT);
+
 	
 	cli();
 	PCICR |=  0b00000100;   // turn on port d
@@ -274,16 +275,17 @@ void loop()
 
 	//Lets use the sensor
 
-	if ((((SensorValue < 2000)&&(SensorValue > 400))&&(targetOffset==0)&&(enableSensor==true))) {
+	if ((((SensorValue < 2000)&&(SensorValue > 600))&&(targetOffset==0)&&(enableSensor==true) && (turningOffset == 0))) {
 
-		sensorOffset = map(SensorValue, 400, 2000, 4, 0);
-		Serial.println(sensorOffset);
+		sensorOffset = map(SensorValue, 600, 2000, 4, 0);
+		//sensorOffset = 0;
+		//Serial.println(sensorOffset);
 
 	}
 	else
 		sensorOffset = 0;
 	
-		
+	//Serial.println(sensorOffset);
 	
 
 	while (loop_timer > micros()) {		

@@ -27,12 +27,12 @@ Output<8> RightB;
 #define battery 0
 
 /*End of pin configuration*/
-#define DEBUG
+//#define DEBUG
 //#define battery_debug
 //#define DEBUG_ENGIEN
 //#define DEBUG_GYRO
 //define TEST_PWM
-//#define Radio_data
+#define Radio_data
 
 
 

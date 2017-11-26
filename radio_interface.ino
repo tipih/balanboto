@@ -83,7 +83,7 @@ void read_radio()
 	clear_radio_buffer();
 	int size = read_radio_input(14,200);
 	
-	//Serial.println(size);
+	
 	
 	if (size == 14) {
 
@@ -151,25 +151,25 @@ void radio_analyze_data(){
 
 #ifdef Radio_data
 
-	Serial.println(radio_read_buffer[0],HEX);
-	Serial.println("---------");
+	Serial.print(radio_read_buffer[0],HEX);
+	Serial.print("---------");
 	
-	Serial.println(radio_read_buffer[1], HEX);
-	Serial.println(radio_read_buffer[2], HEX);
-	Serial.println(radio_read_buffer[3], HEX);
-	Serial.println(radio_read_buffer[4], HEX);
-	Serial.println("---------");
-	Serial.println(radio_read_buffer[5], HEX);
-	Serial.println(radio_read_buffer[6], HEX);
-	Serial.println(radio_read_buffer[7], HEX);
-	Serial.println(radio_read_buffer[8], HEX);
-	Serial.println("---------");
-	Serial.println(radio_read_buffer[9], HEX);
-	Serial.println(radio_read_buffer[10], HEX);
-	Serial.println(radio_read_buffer[11], HEX);
-	Serial.println(radio_read_buffer[12], HEX);
-	Serial.println("---------");
-	Serial.println(radio_read_buffer[13], HEX);
+	Serial.print(radio_read_buffer[1], HEX);
+	Serial.print(radio_read_buffer[2], HEX);
+	Serial.print(radio_read_buffer[3], HEX);
+	Serial.print(radio_read_buffer[4], HEX);
+	Serial.print("---------");
+	Serial.print(radio_read_buffer[5], HEX);
+	Serial.print(radio_read_buffer[6], HEX);
+	Serial.print(radio_read_buffer[7], HEX);
+	Serial.print(radio_read_buffer[8], HEX);
+	Serial.print("---------");
+	Serial.print(radio_read_buffer[9], HEX);
+	Serial.print(radio_read_buffer[10], HEX);
+	Serial.print(radio_read_buffer[11], HEX);
+	Serial.print(radio_read_buffer[12], HEX);
+	Serial.print("---------");
+	Serial.print(radio_read_buffer[13], HEX);
 	Serial.println("---------");
 #endif // Radio_data
 
@@ -221,10 +221,10 @@ void radio_analyze_data(){
 			dataStruct2 = (struct _msgtype3 *)&radio_read_buffer;
 			switch (dataStruct2->data1) {
 			case 0: Serial.println("stop"); targetOffset = 0; turningOffset = 0; break;//Forward
-			case 1: Serial.println("forward"); targetOffset = -7;	break;//Forward
+			case 1: Serial.println("forward"); targetOffset = -8;	break;//Forward
 			case 2: Serial.println("backward"); targetOffset = 7; break; //Backward
-			case 3: Serial.println("left");	turningOffset = 25;	break; //Left
-			case 4: Serial.println("right"); turningOffset = -25;	break; //Right
+			case 3: Serial.println("left");	turningOffset = 30;	break; //Left
+			case 4: Serial.println("right"); turningOffset = -30;	break; //Right
 
 
 			}

@@ -45,6 +45,7 @@ void calibrate_gyro() {
 #ifdef DEBUG
 	Serial.println("Calibrate the Gyro");
 #endif // DEBUG
+	digitalWrite(A3, HIGH);
 	gyro_yaw_calibration_value = gyro_pitch_calibration_value = 0;
 	for (receive_counter = 0; receive_counter < 500; receive_counter++) {       //Create 500 loops
 		if (receive_counter % 15 == 0)digitalWrite(13, !digitalRead(13));        //Change the state of the LED every 15 loops to make the LED blink fast
@@ -85,7 +86,7 @@ void calibrate_gyro() {
 	kalmanX.setAngle(roll); // Set starting angle
 	kalmanY.setAngle(pitch);
 
-
+	digitalWrite(A3, LOW);
 }
 /*Read gyro, should be called once pr loop*/
 void read_gyro() {
