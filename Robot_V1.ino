@@ -42,7 +42,7 @@ unsigned long encoderTimer;
 static unsigned long sensorTimer;
 static unsigned long current_time;
 
-unsigned int pulseTimer;
+static unsigned long pulseTimer;
 unsigned int loop_time = loop_timing;
 
 unsigned int tempVar;
@@ -100,6 +100,7 @@ static bool moveing = false;
 bool analyze_data = false;
 bool enableSensor = true;
 bool last_state = false;
+bool pin_trigger = false;
 
 //input buffer for radio interface
 unsigned char radio_read_buffer[64];
@@ -130,36 +131,42 @@ ISR(TIMER1_OVF_vect)
 {
 	cli();
 
+#if 0
 	pulseTimer++;
 	if (pulseTimer >= 4000)
 	{
 		if (pulseTimer == 4000)
 			PORTC |= 0b000000100;
-		else if(pulseTimer == 4002)
+		else if (pulseTimer == 4002)
 		{
 			PORTC &= ~0b00000100;
 			pulseTimer = 0;
 			sensorTimer = micros();
 		}
 	}
+
+#endif // 0
 	sei();
 }
 
 ISR(PCINT2_vect)															   // Port D, PCINT16 - PCINT23
 {
 	
+#if 0
 	current_time = micros();
-	cli();
+
 	//Pin 2=========================================
-	if  (PIND & B00000100) {                                                      //Is input 2 high?
+	if (PIND & B00000100) {                                                      //Is input 2 high?
 		if (last_state == false)                                                 //Input 10 changed from 0 to 1.
-     		last_state = true;
+			last_state = true;
 	}
-	else if (last_state==true) {
+	else if (last_state == true) {
 		last_state = false;
 		SensorValue = current_time - sensorTimer;                             //SensorValue  is current_time - sensorTimer.
-		}
-	sei();
+	}
+#endif // 0
+
+	
 	
 }
 
@@ -172,6 +179,7 @@ void setup()
 	TWBR = 12;                                                                //Set the I2C clock speed to 400kHz
 	pinMode(A3, OUTPUT);
 	pinMode(A2, OUTPUT);
+	pinMode(A1, OUTPUT);
 	pinMode(2, INPUT);
 	Serial.begin(19200);
 	Serial.println("Starting up project Robot V1");
@@ -214,7 +222,7 @@ void setup()
 	pulseTimer = 0;
 	sensorChannel = 0;
 	sensorOffset = 0;
-	
+	digitalWrite(A1, HIGH);
 }
 
 void loop()
@@ -275,21 +283,54 @@ void loop()
 
 	//Lets use the sensor
 
+
+
 	if ((((SensorValue < 2000)&&(SensorValue > 600))&&(targetOffset==0)&&(enableSensor==true) && (turningOffset == 0))) {
 
 		sensorOffset = map(SensorValue, 600, 2000, 4, 0);
+		digitalWrite(A1, LOW);
 		//sensorOffset = 0;
 		//Serial.println(sensorOffset);
 
 	}
-	else
+	else {
 		sensorOffset = 0;
+		digitalWrite(A1, HIGH);
+	}
+	//Serial.println(SensorValue);
 	
-	//Serial.println(sensorOffset);
+	
+
+	if ((micros() - pulseTimer >= 150000)&&(pin_trigger==false))
+	{
+		pin_trigger = true;
+		PORTC |= 0b000000100;
+		pulseTimer = micros();
+	}
 	
 
 	while (loop_timer > micros()) {		
-																					//Stay in this loop untill next loop												
+		
+		if ((micros() - pulseTimer >= 50) && (pin_trigger == true)) {
+			pin_trigger = false;
+			pulseTimer = micros();
+			PORTC &= ~0b00000100;
+		
+			sensorTimer = micros();
+		}
+		//Stay in this loop untill next loop
+
+
+		//Pin 2=========================================
+		if (PIND & B00000100) {                                                      //Is input 2 high?
+			if (last_state == false)                                                 //Input 10 changed from 0 to 1.
+				last_state = true;
+		}
+		else if (last_state == true) {
+			last_state = false;
+			SensorValue = micros() - sensorTimer;                             //SensorValue  is current_time - sensorTimer.
+		}
+
 	};
 	
 	loop_timer += 4000;
