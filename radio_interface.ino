@@ -221,8 +221,18 @@ void radio_analyze_data(){
 			dataStruct2 = (struct _msgtype3 *)&radio_read_buffer;
 			switch (dataStruct2->data1) {
 			case 0: Serial.println("stop"); targetOffset = 0; turningOffset = 0; break;//Forward
-			case 1: Serial.println("forward"); targetOffset = -8;	break;//Forward
-			case 2: Serial.println("backward"); targetOffset = 7; break; //Backward
+			case 1: Serial.println("forward"); {
+				byte speed = dataStruct2->data2;
+				speed = map(speed, 0xa0, 0xfa, 1, 9);
+				targetOffset = -speed;	break;//Forward
+				Serial.println(targetOffset);
+			}
+			case 2: Serial.println("backward"); {
+				byte speed = dataStruct2->data2;
+				speed = map(speed, 0xa0, 0xfa, 1, 9);
+				targetOffset = speed; break; //Backward
+				Serial.println(targetOffset);
+			}
 			case 3: Serial.println("left");	turningOffset = 30;	break; //Left
 			case 4: Serial.println("right"); turningOffset = -30;	break; //Right
 
@@ -246,6 +256,8 @@ void radio_analyze_data(){
 
 
 }
+
+
 
 void getPID() {
 	
