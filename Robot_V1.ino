@@ -6,6 +6,7 @@
 #include <Wire.h>
 #include "writeToEeprom.h"
 #include <EEPROM.h>
+#include <NewPing.h>
 
 #include <Kalman.h> // Source: https://github.com/TKJElectronics/KalmanFilter
 
@@ -32,6 +33,7 @@ int16_t tempRaw;
 uint8_t i2cData[14]; // Buffer for I2C data
 
 
+
 //Timers
 static uint32_t pidTimer; // Timer used for the PID loop
 uint32_t timer;
@@ -39,14 +41,15 @@ unsigned long loop_timer;
 unsigned long test_timer;
 unsigned long bat_timer;
 unsigned long encoderTimer;
-static unsigned long sensorTimer;
+
 static unsigned long current_time;
 
-static unsigned long pulseTimer;
+unsigned long pulseTimer;
 unsigned int loop_time = loop_timing;
 
 unsigned int tempVar;
-static unsigned int SensorValue;
+unsigned long SensorValue;
+
 //Sensor
 byte sensorOffset;
 byte sensorChannel;
@@ -106,15 +109,17 @@ bool pin_trigger = false;
 unsigned char radio_read_buffer[64];
 char radio_input;
 
-
-
-
-
-
-
-
 struct debug_info di;
 
+#define TRIGGER_PIN   A2 // Arduino pin tied to trigger pin on ping sensor.
+#define ECHO_PIN      2 // Arduino pin tied to echo pin on ping sensor.
+#define MAX_DISTANCE 60 // Maximum distance we want to ping for (in centimeters). Maximum sensor distance is rated at 400-500cm.
+unsigned long timeSinceLastPing = 0;
+unsigned int pingDistance = 0;
+
+unsigned int pingSpeed = 250; // How frequently are we going to send out a ping (in milliseconds). 50ms would be 20 times a second.
+unsigned long pingTimer;     // Holds the next ping time.
+unsigned long startTime = 0;
 
 
 
@@ -122,53 +127,13 @@ struct debug_info di;
 SoftwareSerial radio_serial(radio_serial_rx, radio_serial_tx);
 Encoder leftEncode(leftEncoderPin1, leftEncoderPin2);		//Setup left the encoder for pin 1-2
 //Encoder rightEncoder(rightEncoderPin1, rightEncoderPin2);	//Setup right the encoder for pin 1-2
+NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_DISTANCE); // NewPing setup of pins and maximum distance.
 
-//************************************************************************************************
-//Interrupt overflow vector for generating a 50uS pulse every 100ms
-//Timer 1 is setup to 20kHz PWM, but we also used the overflow interrupt vector for generation of a pulse
-//So 2000 counts = 100 mS as 1 count = 50uS fits very well with HC-SR04 datasheet
-ISR(TIMER1_OVF_vect)
-{
-	cli();
 
-#if 0
-	pulseTimer++;
-	if (pulseTimer >= 4000)
-	{
-		if (pulseTimer == 4000)
-			PORTC |= 0b000000100;
-		else if (pulseTimer == 4002)
-		{
-			PORTC &= ~0b00000100;
-			pulseTimer = 0;
-			sensorTimer = micros();
-		}
-	}
 
-#endif // 0
-	sei();
-}
-
-ISR(PCINT2_vect)															   // Port D, PCINT16 - PCINT23
-{
-	
-#if 0
-	current_time = micros();
-
-	//Pin 2=========================================
-	if (PIND & B00000100) {                                                      //Is input 2 high?
-		if (last_state == false)                                                 //Input 10 changed from 0 to 1.
-			last_state = true;
-	}
-	else if (last_state == true) {
-		last_state = false;
-		SensorValue = current_time - sensorTimer;                             //SensorValue  is current_time - sensorTimer.
-	}
-#endif // 0
 
 	
-	
-}
+
 
 
 
@@ -195,10 +160,7 @@ void setup()
 
 
 	
-	cli();
-	PCICR |=  0b00000100;   // turn on port d
-	PCMSK2 |= 0b00000100;	// turn on pin PD02, which is PCINT18
-	sei();
+
 
 
 	digitalWrite(A3, LOW);
@@ -218,7 +180,8 @@ void setup()
 	timer = micros();
 	pidTimer = timer;
 	bat_timer = millis() + 1000;
-
+	pingTimer = millis(); // Start now.
+	pingDistance = 0;
 	pulseTimer = 0;
 	sensorChannel = 0;
 	sensorOffset = 0;
@@ -249,8 +212,14 @@ void loop()
 #endif // battery_debug
 		low_bat = 1;												//Set low bat flag for later use
 	}
-
-	
+//	Serial.println(millis());
+	if (millis() >= pingTimer) {   // pingSpeed milliseconds since last ping, do another ping.
+		pingTimer += pingSpeed;      // Set the next ping time.
+		pingDistance = 0;
+		sonar.ping_timer(echoCheck); // Send out the ping, calls "echoCheck" function every 24uS where you can check the ping status.
+		//Serial.print("Ping distance ");
+		//Serial.println(pingDistance);
+	}
 	
 																					//More than +-35 degree will make the robot stop, then it has to be within +-5 degree to start again
 	if (kalAngleY > 35 || kalAngleY < -35 || start == 0) {							//If the robot tips over or the start variable is zero or the battery is empty
@@ -285,51 +254,26 @@ void loop()
 
 
 
-	if ((((SensorValue < 2000)&&(SensorValue > 600))&&(targetOffset==0)&&(enableSensor==true) && (turningOffset == 0))) {
+	if ((((pingDistance < MAX_DISTANCE)&&(pingDistance > 2))&&(targetOffset==0)&&(enableSensor==true) && (turningOffset == 0))) {
 
-		sensorOffset = map(SensorValue, 600, 2000, 4, 0);
+		sensorOffset = map(pingDistance, 2, MAX_DISTANCE, 5, 0);
 		digitalWrite(A1, LOW);
-		//sensorOffset = 0;
-		//Serial.println(sensorOffset);
+		//sensorOffset = 0
+		//Serial.println(SensorValue);
 
 	}
 	else {
 		sensorOffset = 0;
 		digitalWrite(A1, HIGH);
 	}
-	//Serial.println(SensorValue);
+	//Serial.println(sensorOffset);
 	
 	
 
-	if ((micros() - pulseTimer >= 150000)&&(pin_trigger==false))
-	{
-		pin_trigger = true;
-		PORTC |= 0b000000100;
-		pulseTimer = micros();
-	}
 	
 
 	while (loop_timer > micros()) {		
 		
-		if ((micros() - pulseTimer >= 50) && (pin_trigger == true)) {
-			pin_trigger = false;
-			pulseTimer = micros();
-			PORTC &= ~0b00000100;
-		
-			sensorTimer = micros();
-		}
-		//Stay in this loop untill next loop
-
-
-		//Pin 2=========================================
-		if (PIND & B00000100) {                                                      //Is input 2 high?
-			if (last_state == false)                                                 //Input 10 changed from 0 to 1.
-				last_state = true;
-		}
-		else if (last_state == true) {
-			last_state = false;
-			SensorValue = micros() - sensorTimer;                             //SensorValue  is current_time - sensorTimer.
-		}
 
 	};
 	
@@ -362,6 +306,28 @@ float readBattery() {
 }
 
 
+void echoCheck() 
+{ // Timer2 interrupt calls this function every 24uS where you can check the ping status.
+				   // Don't do anything here!
+	if (sonar.check_timer()) { // This is how you check to see if the ping was received.
+		
+		Serial.println(millis()-timeSinceLastPing);
+
+
+		if ((timeSinceLastPing == 0) || (millis() - timeSinceLastPing > pingSpeed+10))
+		{
+			pingDistance = 0;
+
+		}
+		else
+		{
+			pingDistance = sonar.ping_result / US_ROUNDTRIP_CM;
+			Serial.println(pingDistance);
+
+		}
+		timeSinceLastPing = millis();
+	}
+}
 /********************************************************************************************************/
 /*Section for sensor calculation*/
 /*Section will Have PID calculation, Sensor data and Kalman filtering*/

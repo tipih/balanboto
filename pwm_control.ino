@@ -17,7 +17,7 @@ Value between 0 - 799
 
 	OCR1A = 0;
 	OCR1B = 0;
-	TIMSK1 = (0 << ICIE1) | (0 << OCIE1B) | (0 << OCIE1A) | (1 << TOIE1); //Enable overflow interrupt, this will be use for generating a pulse to the ultrasonic trigger
+	TIMSK1 = (0 << ICIE1) | (0 << OCIE1B) | (0 << OCIE1A) | (0 << TOIE1); //Enable overflow interrupt, this will be use for generating a pulse to the ultrasonic trigger
 
 	DDRB |= (1 << DDB1);
 	DDRB |= (1 << DDB2);
