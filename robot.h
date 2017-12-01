@@ -32,7 +32,7 @@ Output<8> RightB;
 //#define DEBUG_ENGIEN
 //#define DEBUG_GYRO
 //define TEST_PWM
-#define Radio_data
+//#define Radio_data
 
 
 
