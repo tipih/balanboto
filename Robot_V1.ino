@@ -77,7 +77,7 @@ static float targetOffset = 0.0f;	// Offset for going forward and backward
 static float turningOffset = 0.0f;	// Offset for turning left and right
 static float targetAngle; // Resting angle of the robot
 static float lastError; // Store last angle error
-
+static bool buttonFlag;
 
 //General PID VARS
 static float iTerm; // Store iTerm
@@ -175,6 +175,7 @@ void setup()
 
 
 	low_bat = 0;
+	buttonFlag = false;
   /* add setup code here */
 	loop_timer = micros() + 4000;                                             //Set the loop_timer variable at the next end loop time
 	timer = micros();
@@ -252,7 +253,13 @@ void loop()
 
 	//Lets use the sensor
 
-
+	//if 
+	if (buttonFlag == true) {
+		
+		targetOffset = 0;
+		turningOffset = 0;
+	}
+	
 
 	if ((((pingDistance < MAX_DISTANCE)&&(pingDistance > 2))&&(targetOffset==0)&&(enableSensor==true) && (turningOffset == 0))) {
 
