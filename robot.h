@@ -52,6 +52,14 @@ enum Command {
 	joystick,
 } lastCommand; // This is used set a new targetPosition
 
+
+//Command control
+struct __attribute__((packed)) _msgCommand {
+	byte speed;
+	byte turn;
+}; static _msgCommand  *msgCommandStruct;
+
+
 //Struct for sending data to the PC program
 struct __attribute__((packed)) debug_info {
 	byte id;

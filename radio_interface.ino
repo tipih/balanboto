@@ -96,6 +96,26 @@ void read_radio()
 
 }
 
+void read_radio_control() {
+	if (radio_serial.available() == 0)
+	{
+		return;
+	}
+
+	clear_radio_buffer();
+	int size = read_radio_input(2, 10);
+
+
+
+	if (size == 2) {
+
+		/*If we got 2 byte then we should have everything*/
+		/*Now we convert the data to float*/
+		get_control();
+
+	}
+}
+
 
 
 void clear_radio_buffer() {
@@ -131,13 +151,34 @@ void radio_write(char* data) {
 	//Serial.println(sizeof(debug_info));
 }
 
+
+
+/*2 byte for remote control*/
+void get_control() {
+	msgCommandStruct = (struct _msgCommand *)&radio_read_buffer;
+	
+	byte speed = msgCommandStruct->speed;
+	byte turn = msgCommandStruct->turn;
+
+	targetOffset = map(speed, 0, 0xff, -8, 8);
+	turningOffset = map(turn, 0, 0xff, -30, 30);
+
+	if ((speed > 100) && (speed < 130)) targetOffset = 0;
+	if ((turn > 100) && (turn < 130)) turningOffset = 0;
+
+	Serial.println("Remote "); Serial.println(" "); Serial.println(targetOffset); Serial.println(" "); Serial.println(turningOffset);
+}
+
+
+
+
+
 /*Main accespoint for analyzing data comming from PC, everything must be send as Little Endian form PC, so if PC is Big Endian a conversion must be done*/
 /*We have the following message type for  14 bytes 1 byte id 12 byte for different types 1 byte for end*/
 /*MSG1 1 byte ID 3*4 byte float 1 byte end*/
 /*MSG2 1 byte ID 4 byte unsigned long 2*4 byte long 1 byte end*/
 /*MSG3 1 byte ID 14*1 byte 1 byte end*/
 /*MSG4 1 byte ID 1*4 byte unsigned long 1*4 byte long 1*4 byte float 1 byte end*/
-
 void radio_analyze_data() {
 
 
@@ -224,7 +265,7 @@ void radio_analyze_data() {
 			buttonFlag = true;
 		else if (dataStruct2->data3 == 0x02)
 			buttonFlag = false;
-		
+
 		switch (dataStruct2->data1) {
 		case 0: Serial.println("stop"); targetOffset = 0; turningOffset = 0; break;//Forward
 		case 1: Serial.println("forward"); {
@@ -255,8 +296,8 @@ void radio_analyze_data() {
 			Serial.println(turningOffset);
 			break; //Right
 		}
-				
-				
+
+
 
 		}
 		break;

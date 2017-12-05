@@ -31,6 +31,8 @@ double gyroX, gyroY, gyroZ;
 double kalAngleX, kalAngleY; // Calculated angle using a Kalman filter
 int16_t tempRaw;
 uint8_t i2cData[14]; // Buffer for I2C data
+#define startAngle 5 //Angle before we start to balance
+#define stopAngle 35 //Angle for stopping the motor
 
 
 
@@ -193,7 +195,8 @@ void loop()
 {
 	
 	/*Do all the loop magic after this point*/
-	read_radio();
+	//read_radio();  //14 byte read for everything
+	read_radio_control(); //4 byte read for control only
 	PID_calculation();
 	readEncoders();	//Not in use
 #ifdef TEST_PWM
@@ -223,7 +226,7 @@ void loop()
 	}
 	
 																					//More than +-35 degree will make the robot stop, then it has to be within +-5 degree to start again
-	if (kalAngleY > 35 || kalAngleY < -35 || start == 0) {							//If the robot tips over or the start variable is zero or the battery is empty
+	if (kalAngleY > stopAngle || kalAngleY < -stopAngle || start == 0) {							//If the robot tips over or the start variable is zero or the battery is empty
 		//pid_output = 0;															//Set the PID controller output to 0 so the motors stop moving
 		//pid_i_mem = 0;															//Reset the I-controller memory
 		start = 0;																	//Set the start variable to 0
@@ -234,7 +237,7 @@ void loop()
 	}
 
 																					//Restart the Robot when within the +-5 degree
-	if ((kalAngleY > -5 && kalAngleY < 5) && start==0) {
+	if ((kalAngleY > -startAngle && kalAngleY < startAngle) && start==0) {
 		Serial.println("ok to go");
 		start = 1;
 	}
